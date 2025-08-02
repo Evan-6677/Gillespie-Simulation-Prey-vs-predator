@@ -10,8 +10,16 @@ from matplotlib import pyplot as plt
 import pandas as pd
 import json
 
-torch.manual_seed(157)
-np.random.seed(157)
+import sys
+
+if len(sys.argv) >= 2:
+    seed = int(sys.argv[1])
+else:
+    seed = 157
+
+print('seed',seed)
+np.random.seed(seed)
+torch.manual_seed(seed)
 
 # === Device ===
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -214,13 +222,13 @@ def run_nutrient_param_sweep(num_conditions=100, N=50, t_max=200.0, time_grid=No
             if (t >= t_max).all():
                 break
         results[label] = (torch.stack(history_t), torch.stack(history_X), param_matrix[i].tolist())
-    outdir = "nutrient_param_sweep"
+    outdir = "nutrient_param_sweep_"+ str(seed)
     plot_outflow_results(results, time_grid, outdir=outdir, log_scale=False)
     return results
 
 # === Now, actually running the simulation ===
 if __name__ == "__main__":
-    num_conditions = 2
+    num_conditions = 100
     N = 50
     t_max = 200.0
     max_steps = 100000
