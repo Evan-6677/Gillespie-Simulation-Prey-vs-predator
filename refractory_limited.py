@@ -16,6 +16,7 @@ np.random.seed(157)
 # === Device ===
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
+
 # === Stoichiometry Matrix for Nutrient-aware Chemostat Model ===
 # Species order: E, Bv_mature, Bp, N, Bv_immature
 S_nutrient = torch.tensor([
@@ -99,20 +100,27 @@ def gillespie_step(X, params, S, t, t_max):
     t_new = t + dt
     X_new = X.clone()
 
-    for i in range(X.shape[0]):
-        if not move[i]:
-            continue
-        if inflow_first[i]:
-            # Apply deterministic inflow pulse
-            X_new[i, 3] += inflow_amplitude 
-        else:
-            # Apply stochastic reaction update
-            dS = S[:, rxn[i].item()].clone()
-            # Modify for hatching reaction offspring count
-            if rxn[i].item() == 2:
-                n_offspring = np.random.poisson(3.5)
-                dS[4] = n_offspring
-            X_new[i] += dS
+    # for i in range(X.shape[0]):
+    #     if not move[i]:
+    #         continue
+    #     if inflow_first[i]:
+    #         # Apply deterministic inflow pulse
+    #         X_new[i, 3] += inflow_amplitude 
+    #     else:
+    #         # Apply stochastic reaction update
+    #         dS = S[:, rxn[i].item()].clone()
+    #         # Modify for hatching reaction offspring count
+    #         if rxn[i].item() == 2:
+    #             n_offspring = np.random.poisson(3.5)
+    #             dS[4] = n_offspring
+    #         X_new[i] += dS
+    X_new[torch.logical_and(move,inflow_first), 3] += inflow_amplitude
+
+    dS = S[:,rxn].clone()
+    dS[4,(rxn==2)] = torch.poisson(3.5*torch.ones_like(rxn)[rxn==2])
+    dS = dS.T
+    dS[torch.logical_or(~move,inflow_first)] *= 0
+    X_new += dS
 
     X_new = torch.clamp(X_new, min=0)
     return t_new, X_new, dt
@@ -212,7 +220,7 @@ def run_nutrient_param_sweep(num_conditions=100, N=50, t_max=200.0, time_grid=No
 
 # === Now, actually running the simulation ===
 if __name__ == "__main__":
-    num_conditions = 100
+    num_conditions = 2
     N = 50
     t_max = 200.0
     max_steps = 100000
